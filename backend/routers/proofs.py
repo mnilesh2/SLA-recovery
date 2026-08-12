@@ -21,6 +21,18 @@ def get_proof(
     return proof
 
 
+@router.get("/by-calculation/{calculation_id}", response_model=ProofResponse)
+def get_proof_by_calculation(
+    calculation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    proof = db.query(Proof).filter(Proof.calculation_id == calculation_id).first()
+    if not proof:
+        raise HTTPException(status_code=404, detail="Proof not found for this calculation")
+    return proof
+
+
 @router.get("/search")
 def search_proofs(
     cost_type: Optional[str] = None,
