@@ -1,0 +1,73 @@
+# Virtual Environments
+myenv/
+venv/
+env/
+.venv/
+ENV/
+*.egg-info/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Database
+sla_recovery.db
+*.db
+
+# Uploaded Files
+uploads/
+*.pdf
+*.csv
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Streamlit
+.streamlit/
+.streamlit_cache/
+
+# OS
+.DS_Store
+*.log
+*.pot
+
+# Misc
+.ipynb_checkpoints/
+.mypy_cache/
+.dmypy.json
+dmypy.json

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import sys; print\\(f'Python {sys.version}'\\)\")",
+      "Bash(python -m py_compile backend/main.py)",
+      "Bash(pip install *)",
+      "Bash(timeout 5 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(pip index *)",
+      "Bash(timeout 10 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(python -c \"from backend.main import app; print\\('✓ Backend imports successfully'\\)\")",
+      "Bash(timeout 8 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(pip uninstall *)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(pkill -f uvicorn)",
+      "Bash(python3 -c \"from backend.main import app; from backend.seed import seed_initial_data; print\\('✅ Backend imports and seed function OK'\\)\")",
+      "Bash(python3 -c \"from argon2 import PasswordHasher; print\\('✅ argon2-cffi imports correctly'\\)\")",
+      "Bash(python3 -c \"from backend.main import app; print\\('✅ Backend imports successfully'\\)\")"
+    ]
+  }
+}
