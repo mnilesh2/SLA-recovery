@@ -14,7 +14,9 @@
       "Bash(pkill -f uvicorn)",
       "Bash(python3 -c \"from backend.main import app; from backend.seed import seed_initial_data; print\\('✅ Backend imports and seed function OK'\\)\")",
       "Bash(python3 -c \"from argon2 import PasswordHasher; print\\('✅ argon2-cffi imports correctly'\\)\")",
-      "Bash(python3 -c \"from backend.main import app; print\\('✅ Backend imports successfully'\\)\")"
+      "Bash(python3 -c \"from backend.main import app; print\\('✅ Backend imports successfully'\\)\")",
+      "Bash(python3 -m py_compile /home/labuser/Desktop/Persistent_Folder/Caps-EXL/backend/services/document_parser.py)",
+      "Bash(python3 -m py_compile /home/labuser/Desktop/Persistent_Folder/Caps-EXL/backend/config.py)"
     ]
   }
 }

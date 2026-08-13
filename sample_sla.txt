@@ -1,0 +1,91 @@
+===============================================================
+SERVICE LEVEL AGREEMENT (SLA)
+E-Commerce Platform Services
+Effective Date: August 1, 2024
+===============================================================
+
+1. SERVICE LEVEL TARGETS
+===============================================================
+
+1.1 UPTIME COMMITMENT
+- Target Uptime: 99.5% per calendar month
+- Measurement Period: Monthly (1st to last day of month)
+- Exclusions: Scheduled maintenance windows (max 4 hours/month), customer-caused outages
+
+1.2 UPTIME BREACH TIERS
+- 99.0% to 99.49%: 5% service credit
+- 98.5% to 98.99%: 10% service credit
+- 98.0% to 98.49%: 15% service credit
+- Below 98.0%: 25% service credit + escalation
+
+1.3 RESPONSE TIME (API)
+- Target: 95th percentile ≤ 500ms
+- Critical threshold: 99th percentile ≤ 2000ms
+- Measurement: Every API request
+- Breach: If 95th percentile exceeds 500ms for 5+ consecutive hours
+
+1.4 ERROR RATE
+- Target: < 0.1% (errors / total requests)
+- Warning threshold: 0.05%
+- Critical threshold: > 0.5%
+- Breach: If error rate exceeds 0.1% for 30+ minutes
+
+1.5 DATABASE AVAILABILITY
+- Target: 99.9% availability
+- Measurement: Heartbeat check every 5 minutes
+- Breach: 3 consecutive failed health checks = 30-minute downtime incident
+
+2. PENALTY CALCULATION
+===============================================================
+
+2.1 MONTHLY SERVICE CREDIT CALCULATION
+Base: Monthly Service Fee = $50,000
+
+Credit Calculation:
+- Per 0.01% below target: $50 credit
+- Example: 99.2% uptime = 0.3% below 99.5% = $1,500 credit
+
+2.2 INCIDENT RESPONSE SLA
+- P1 (Critical): Response within 15 minutes
+- P2 (High): Response within 1 hour
+- P3 (Medium): Response within 4 hours
+- Breach: +$500 per missed SLA window
+
+2.3 RESOLUTION TIME
+- P1 incidents: Must resolve within 4 hours (escalation every 30 min)
+- P2 incidents: Must resolve within 8 hours
+- P3 incidents: Must resolve within 24 hours
+- Breach: Additional $250 per hour over SLA
+
+3. MEASUREMENT & REPORTING
+===============================================================
+
+3.1 METRICS COLLECTION
+- Real-time monitoring via agents
+- 5-minute granularity for all metrics
+- Monthly reports due by 5th of following month
+
+3.2 CREDITS
+- Credits issued as account adjustments within 30 days of month-end
+- Maximum monthly credit: 25% of monthly fee ($12,500)
+- Credits cannot be carried forward beyond 12 months
+
+4. EXCLUSIONS
+===============================================================
+
+- Third-party provider outages (AWS, CDN)
+- Customer misuse or DDoS attacks
+- Scheduled maintenance (4-hour/month window, announced 48 hours in advance)
+- Customer network issues
+
+5. CONTACT & ESCALATION
+===============================================================
+
+Support Level 1: support@platform.com (4-hour response)
+Support Level 2: escalations@platform.com (1-hour response)
+Executive Escalation: ceo@platform.com (15-minute response for P1)
+
+===============================================================
+Monthly Service Fee: $50,000
+Effective Period: August 1 - August 31, 2024
+===============================================================

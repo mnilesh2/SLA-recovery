@@ -65,18 +65,64 @@ def validate_calculation(
         if not document.data_csv_path:
             raise HTTPException(status_code=400, detail="Document has no CSV data")
 
-        math_engine = MathEngine(csv_path=document.data_csv_path)
-        validation_result = math_engine.validate_and_execute(query.sql_query)
+        try:
+            math_engine = MathEngine(csv_path=document.data_csv_path)
+            print(f"🔍 Validating SQL for CSV: {document.data_csv_path}")
+            print(f"📝 SQL Query:\n{query.sql_query}")
+            validation_result = math_engine.validate_and_execute(query.sql_query)
+            print(f"✅ Validation result: {validation_result['status']}")
+            if validation_result['validation_errors']:
+                print(f"⚠️ Validation errors: {validation_result['validation_errors']}")
+        except Exception as sql_error:
+            print(f"❌ SQL execution error: {type(sql_error).__name__}: {str(sql_error)}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=f"SQL execution failed: {str(sql_error)}")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Validation error: {str(e)}")
+        print(f"❌ Exception during validation: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal validation error: {str(e)}")
+
+    from datetime import date, datetime
+    from decimal import Decimal
+
+    def json_serializer(obj):
+        """Convert non-JSON-serializable objects to JSON-compatible types."""
+        # Date/DateTime objects
+        if isinstance(obj, (date, datetime)):
+            return obj.isoformat()
+        # Decimal numbers
+        elif isinstance(obj, Decimal):
+            return float(obj)
+        # NumPy types (if used)
+        elif hasattr(obj, 'tolist'):
+            return obj.tolist()
+        # UUID objects
+        elif hasattr(obj, 'hex'):
+            return str(obj)
+        # Bytes
+        elif isinstance(obj, bytes):
+            return obj.decode('utf-8', errors='ignore')
+        # Any other type - convert to string
+        else:
+            return str(obj)
+
+    # Normalize non-JSON-serializable types for storage
+    # validation_errors: Text column, store as JSON string
+    # raw_result_rows: JSON column, store as raw dict (SQLAlchemy handles serialization)
+    normalized_result = None
+    if validation_result["result"]:
+        # Normalize the dict to handle non-serializable types (date/Decimal/etc.)
+        normalized_result = json.loads(json.dumps(validation_result["result"], default=json_serializer))
 
     db_calculation = Calculation(
         query_id=query_id,
         validation_status=validation_result["status"],
-        validation_errors=json.dumps(validation_result["validation_errors"]) if validation_result["validation_errors"] else None,
-        raw_result_rows=json.dumps(validation_result["result"]) if validation_result["result"] else None
+        validation_errors=json.dumps(validation_result["validation_errors"], default=json_serializer) if validation_result["validation_errors"] else None,
+        raw_result_rows=normalized_result  # Pass dict directly to JSON column, not json.dumps()
     )
     db.add(db_calculation)
     db.flush()

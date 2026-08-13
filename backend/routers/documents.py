@@ -1,4 +1,6 @@
 import json
+import csv
+from io import StringIO
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -10,6 +12,36 @@ from ..services.document_parser import parse_document_with_llm
 from ..prompts import resolve_prompt
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
+
+
+def extract_csv_headers(csv_path: str) -> list:
+    """Extract column headers from CSV file."""
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            headers = next(reader)
+            return headers
+    except Exception as e:
+        print(f"❌ Error extracting CSV headers: {e}")
+        return []
+
+
+def extract_csv_schema(csv_path: str, sample_rows: int = 3) -> dict:
+    """Extract CSV headers and sample rows for LLM context."""
+    try:
+        import pandas as pd
+        df = pd.read_csv(csv_path)
+
+        schema = {
+            "headers": list(df.columns),
+            "sample_data": df.head(sample_rows).to_dict('records'),
+            "row_count": len(df),
+            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()}
+        }
+        return schema
+    except Exception as e:
+        print(f"❌ Error extracting CSV schema: {e}")
+        return {"headers": [], "sample_data": [], "row_count": 0, "dtypes": {}}
 
 
 @router.post("/upload", response_model=DocumentResponse)
@@ -95,11 +127,35 @@ def parse_document(
     if existing_query:
         raise HTTPException(status_code=400, detail="Document already parsed")
 
-    prompt = resolve_prompt(
-        custom_prompt=document.custom_prompt.prompt_text if document.custom_prompt else None
-    )
+    csv_schema = extract_csv_schema(document.data_csv_path)
+    print(f"📊 CSV Schema extracted:")
+    print(f"   Headers: {csv_schema['headers']}")
+    print(f"   Row count: {csv_schema['row_count']}")
+    print(f"   Sample data: {csv_schema['sample_data']}")
 
-    parsed_result = parse_document_with_llm(document.document_text, prompt)
+    prompt = resolve_prompt(
+        custom_prompt=document.custom_prompt.prompt_text if document.custom_prompt else None,
+        csv_schema=csv_schema
+    )
+    print(f"✅ Prompt prepared with {len(csv_schema['headers'])} columns")
+
+    try:
+        parsed_result = parse_document_with_llm(document.document_text, prompt, csv_schema)
+        print(f"📝 Generated SQL: {parsed_result.get('sql_query', 'N/A')[:200]}...")
+    except (ValueError, RuntimeError) as e:
+        error_message = str(e)
+        print(f"❌ LLM Parsing Error: {error_message}")
+        raise HTTPException(
+            status_code=400,
+            detail=error_message
+        )
+    except Exception as e:
+        error_message = f"Unexpected error during parsing: {str(e)}"
+        print(f"❌ {error_message}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_message
+        )
 
     extracted_terms = json.dumps(parsed_result.get("extracted_terms", {}))
     sql_query = parsed_result.get("sql_query", "")

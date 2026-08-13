@@ -1,6 +1,7 @@
 import duckdb
 import pandas as pd
 from typing import List, Dict, Any, Tuple
+from ..pipeline_config import PipelineConfig
 
 
 class MathEngine:
@@ -17,7 +18,9 @@ class MathEngine:
         conn = self._get_connection()
         try:
             self.df = pd.read_csv(self.csv_path)
-            conn.register("data", self.df)
+            # Use configurable table name from pipeline config
+            conn.register(PipelineConfig.TABLE_NAME, self.df)
+            print(f"✅ CSV loaded with columns: {list(self.df.columns)}")
             return True
         except Exception as e:
             raise ValueError(f"Failed to load CSV: {str(e)}")
@@ -35,9 +38,16 @@ class MathEngine:
         try:
             result = conn.execute(sql_query).description
             columns = [desc[0] for desc in result]
+            print(f"✅ Query columns OK: {', '.join(columns)}")
             return True, f"Query returns columns: {', '.join(columns)}"
         except Exception as e:
-            return False, f"Column error: {str(e)}"
+            error_msg = str(e)
+            print(f"❌ Column error: {error_msg}")
+            # Provide helpful suggestion for common errors
+            if "Conversion Error" in error_msg:
+                suggestion = "\n\n💡 HINT: You may have mixed data types in a column. Use TRY_CAST instead of CAST for safe conversion."
+                return False, f"Column error: {error_msg}{suggestion}"
+            return False, f"Column error: {error_msg}"
 
     def execute_query(self, sql_query: str) -> Tuple[bool, Any, str]:
         conn = self._get_connection()
@@ -55,9 +65,13 @@ class MathEngine:
 
         rows = result_data["rows"]
         columns = result_data.get("columns", [])
+        cost_suffixes = PipelineConfig.suffix_list()
 
         for col_idx, col_name in enumerate(columns):
-            if "_monetary" in col_name or "_credits" in col_name or "_units" in col_name or col_name.endswith("_value"):
+            # Check if column matches any configured cost-type suffix
+            is_cost_column = any(col_name.endswith(suffix) for suffix in cost_suffixes)
+
+            if is_cost_column:
                 for row_idx, row in enumerate(rows):
                     try:
                         val = float(row[col_idx]) if row[col_idx] is not None else 0

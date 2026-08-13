@@ -41,7 +41,8 @@ def approve_calculation(
         query = calculation.query
         document = query.document
 
-        result_data = json.loads(calculation.raw_result_rows) if calculation.raw_result_rows else {}
+        # JSON column is already deserialized by SQLAlchemy
+        result_data = calculation.raw_result_rows if calculation.raw_result_rows else {}
 
         proof_data = AuditProofGenerator.generate_proof(
             calculation_data={"result": result_data},

@@ -1,8 +1,9 @@
 import streamlit as st
 import requests
 import json
+import csv
 from datetime import datetime
-from io import BytesIO
+from io import BytesIO, StringIO
 
 API_URL = "http://localhost:8000"
 
@@ -81,7 +82,6 @@ def render_stepper():
             st.markdown(f"<h3 style='text-align: center;'>{status}<br>{step}</h3>", unsafe_allow_html=True)
 
 def login_page():
-    st.set_page_config(page_title="SLA Recovery Audit - Login", page_icon="🔐", layout="centered")
 
     col1, col2, col3 = st.columns([1, 2, 1])
 
@@ -130,6 +130,19 @@ def step_upload():
             st.markdown("#### Documents")
             sla_doc = st.file_uploader("📄 SLA Document (PDF/TXT)", type=["pdf", "txt"], key="sla_uploader")
             data_csv = st.file_uploader("📊 Billing Data (CSV)", type=["csv"], key="csv_uploader")
+
+            if data_csv:
+                try:
+                    csv_content = StringIO(data_csv.getvalue().decode('utf-8'))
+                    reader = csv.reader(csv_content)
+                    headers = next(reader)
+                    st.success(f"✅ CSV loaded ({len(headers)} columns)")
+                    with st.expander("📊 Show CSV Columns"):
+                        st.write("**Available columns for SQL query:**")
+                        for i, header in enumerate(headers, 1):
+                            st.caption(f"{i}. `{header}`")
+                except:
+                    st.warning("⚠️ Could not read CSV headers")
 
     with col2:
         with st.container(border=True):
@@ -189,25 +202,21 @@ def step_validate():
             st.rerun()
         return
 
-    col1, col2 = st.columns([2, 1])
+    # Display in expandable sections (one line each)
+    with st.expander("📝 Generated SQL Query", expanded=True):
+        if st.session_state.sql_query:
+            st.code(st.session_state.sql_query, language="sql")
+        else:
+            st.warning("No SQL query generated")
 
-    with col1:
-        with st.container(border=True):
-            st.markdown("#### Generated SQL Query")
-            if st.session_state.sql_query:
-                st.code(st.session_state.sql_query, language="sql")
+    with st.expander("📋 Extracted Terms & Clauses", expanded=True):
+        if st.session_state.extracted_terms:
+            if isinstance(st.session_state.extracted_terms, str):
+                st.info(st.session_state.extracted_terms)
             else:
-                st.warning("No SQL query generated")
-
-    with col2:
-        with st.container(border=True):
-            st.markdown("#### Extracted Terms")
-            if st.session_state.extracted_terms:
-                try:
-                    terms = json.loads(st.session_state.extracted_terms) if isinstance(st.session_state.extracted_terms, str) else st.session_state.extracted_terms
-                    st.json(terms)
-                except:
-                    st.write(st.session_state.extracted_terms)
+                st.write(st.session_state.extracted_terms)
+        else:
+            st.warning("No terms extracted")
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -224,7 +233,14 @@ def step_validate():
                     st.session_state.step = "review"
                     st.rerun()
                 else:
-                    st.error(f"❌ Validation failed: {response.text if response else 'Unknown error'}")
+                    error_text = response.text if response else 'Unknown error'
+                    st.error(f"❌ Validation failed")
+                    with st.expander("📋 Error Details (Click to expand)"):
+                        st.code(error_text, language="json")
+                    st.markdown("**Troubleshooting:**")
+                    st.markdown("- Check if CSV column names match the SQL query")
+                    st.markdown("- Verify the SLA document mentions the columns you have")
+                    st.markdown("- The SQL above shows what columns it's trying to use")
 
     with col2:
         if st.button("← Back to Upload", use_container_width=True):
@@ -256,8 +272,14 @@ def step_review():
     with col2:
         st.metric("Cost Types", len(calc['cost_breakdowns']))
     with col3:
+        # Format total cost based on primary cost type (if any)
         total_cost = sum([bd['calculated_value'] for bd in calc['cost_breakdowns']])
-        st.metric("Total Cost", f"${total_cost:,.2f}")
+        primary_currency = calc['cost_breakdowns'][0].get('currency') if calc['cost_breakdowns'] else None
+        if primary_currency:
+            total_label = f"{primary_currency} {total_cost:,.2f}"
+        else:
+            total_label = f"{total_cost:,.2f}"
+        st.metric("Total", total_label)
 
     st.divider()
 
@@ -268,11 +290,18 @@ def step_review():
             st.markdown("#### Cost Breakdown")
             breakdown_data = []
             for bd in calc['cost_breakdowns']:
+                currency = bd.get('currency')
+                value = bd['calculated_value']
+                # Format value with currency if present
+                if currency:
+                    formatted_value = f"{currency} {value:,.2f}"
+                else:
+                    # For non-monetary types, show value with unit label
+                    formatted_value = f"{value:,.0f} {bd['cost_type']}"
+
                 breakdown_data.append({
                     "Type": bd['cost_type'],
-                    "Original": f"${bd.get('original_value', 0):,.2f}",
-                    "Calculated": f"${bd['calculated_value']:,.2f}",
-                    "Delta": f"${bd['calculated_value'] - bd.get('original_value', 0):,.2f}"
+                    "Total": formatted_value
                 })
             st.table(breakdown_data)
 
@@ -389,13 +418,6 @@ def step_proof():
         st.rerun()
 
 def main():
-    st.set_page_config(
-        page_title="SLA Recovery Audit System",
-        page_icon="📋",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-
     init_session_state()
 
     if not st.session_state.token:
@@ -448,4 +470,10 @@ def main():
             step_proof()
 
 if __name__ == "__main__":
+    st.set_page_config(
+        page_title="SLA Recovery Audit System",
+        page_icon="📋",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
     main()
