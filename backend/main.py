@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from . import env_loader  # Load .env first!
+from backend import env_loader  # Load .env first!
 from .database import init_db, get_db
 from .seed import seed_initial_data
 from .routers import auth_router, documents, calculations, approvals, proofs, cost_types

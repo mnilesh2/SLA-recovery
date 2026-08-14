@@ -1,7 +1,7 @@
 import json
 import os
-from ..config import settings
-from ..pipeline_config import PipelineConfig
+from backend.config import settings
+from backend.pipeline_config import PipelineConfig
 
 try:
     from anthropic import Anthropic

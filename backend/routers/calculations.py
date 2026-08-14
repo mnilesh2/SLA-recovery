@@ -5,8 +5,8 @@ from ..database import get_db
 from ..models import User, Query, Calculation, CostBreakdown, AuditLog
 from ..schemas import CalculationResponse
 from ..auth import get_current_user
-from ..services.math_engine import MathEngine
-from ..services.cost_engine import CostEngine
+from backend.services.math_engine import MathEngine
+from backend.services.cost_engine import CostEngine
 
 router = APIRouter(prefix="/api/calculations", tags=["calculations"])
 

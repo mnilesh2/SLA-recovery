@@ -1,7 +1,7 @@
 import duckdb
 import pandas as pd
 from typing import List, Dict, Any, Tuple
-from ..pipeline_config import PipelineConfig
+from backend.pipeline_config import PipelineConfig
 
 
 class MathEngine:

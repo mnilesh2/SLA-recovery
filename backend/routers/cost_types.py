@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import User, CostBreakdown
-from ..auth import get_current_user
+from backend.database import get_db
+from backend.models import User, CostBreakdown
+from backend.auth import get_current_user
 
 router = APIRouter(prefix="/api/cost-types", tags=["cost-types"])
 

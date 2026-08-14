@@ -1,7 +1,7 @@
 """Cost extraction engine — detects and aggregates cost-type columns from SQL results."""
 
 from typing import List, Dict, Any, Tuple
-from ..pipeline_config import PipelineConfig
+from backend.pipeline_config import PipelineConfig
 
 
 class CostEngine:

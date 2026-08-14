@@ -3,13 +3,13 @@ import csv
 from io import StringIO
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import User, Document, Query, CustomPrompt, AuditLog
-from ..schemas import DocumentResponse
-from ..auth import get_current_user
-from ..services.file_storage import save_uploaded_file, extract_text_from_file
-from ..services.document_parser import parse_document_with_llm
-from ..prompts import resolve_prompt
+from backend.database import get_db
+from backend.models import User, Document, Query, CustomPrompt, AuditLog
+from backend.schemas import DocumentResponse
+from backend.auth import get_current_user
+from backend.services.file_storage import save_uploaded_file, extract_text_from_file
+from backend.services.document_parser import parse_document_with_llm
+from backend.prompts import resolve_prompt
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 

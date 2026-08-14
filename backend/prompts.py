@@ -1,6 +1,6 @@
 """SLA document parsing prompt — now generic and configurable."""
 
-from ..pipeline_config import PipelineConfig
+from backend.pipeline_config import PipelineConfig
 
 
 DEFAULT_PROMPT = f"""You are an SLA (Service Level Agreement) expert. Analyze the provided SLA document carefully and extract:

@@ -5,7 +5,7 @@ from ..database import get_db
 from ..models import User, Calculation, Approval, Proof, AuditLog
 from ..schemas import ApprovalRequest, ApprovalResponse
 from ..auth import get_current_user, require_role
-from ..services.audit_proof import AuditProofGenerator
+from backend.services.audit_proof import AuditProofGenerator
 
 router = APIRouter(prefix="/api/approvals", tags=["approvals"])
 
