@@ -50,12 +50,10 @@ env/
 *.sqlite3
 sla_recovery.db
 
-# Uploads (user-uploaded documents and CSV files)
-uploads/
-uploads/**/*
-*.csv
-*.pdf
-*.txt
+# User uploads (ignore all except samples)
+uploads/*
+!uploads/samples/
+!uploads/samples/**
 
 # Logs
 *.log
