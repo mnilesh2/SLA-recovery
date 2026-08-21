@@ -1,0 +1,11 @@
+{
+  "content": "{\n    \"sla_rules\": [\n        {\n            \"rule_id\": \"RULE_001\",\n            \"metric\": \"DaysToHire\",\n            \"threshold\": 30.0,\n            \"threshold_operator\": \">\",\n            \"penalty_amount\": 500,\n            \"penalty_type\": \"monetary\",\n            \"penalty_percentage\": 5,\n            \"description\": \"5% penalty if hiring takes more than 30 days\",\n            \"applicable_period\": \"per incident\"\n        },\n        {\n            \"rule_id\": \"RULE_002\",\n            \"metric\": \"FirstSessionSatisfaction\",\n            \"threshold\": 8.0,\n            \"threshold_operator\": \"<\",\n            \"penalty_amount\": 300,\n            \"penalty_type\": \"monetary\",\n            \"penalty_percentage\": 3,\n            \"description\": \"3% penalty if first session satisfaction is below 8\",\n            \"applicable_period\": \"per incident\"\n        }\n    ],\n    \"violation_conditions\": [\n        {\n            \"metric\": \"DaysToHire\",\n            \"condition\": \"DaysToHire > 30\",\n            \"penalty_rule\": \"5% penalty if hiring takes more than 30 days\"\n        },\n        {\n            \"metric\": \"FirstSessionSatisfaction\",\n            \"condition\": \"FirstSessionSatisfaction < 8\",\n            \"penalty_rule\": \"3% penalty if first session satisfaction is below 8\"\n        }\n    ],\n    \"sql_query\": \"SELECT IncidentID, CASE WHEN DaysToHire > 30 THEN 500 ELSE 0 END AS PenaltyDaysToHire, CASE WHEN FirstSessionSatisfaction < 8 THEN 300 ELSE 0 END AS PenaltyFirstSessionSatisfaction FROM incidents_trainer_hiring\",\n    \"data_fields_required\": [\"IncidentID\", \"DaysToHire\", \"FirstSessionSatisfaction\"],\n    \"monthly_service_fee\": 10000,\n    \"max_monthly_penalty_percentage\": 30\n}",
+  "thinking": "",
+  "usage": {
+    "input_tokens": 1277,
+    "output_tokens": 407
+  },
+  "model": "openai/gpt-4-turbo",
+  "cached": false,
+  "timestamp": "2026-08-21T10:08:37.945239"
+}

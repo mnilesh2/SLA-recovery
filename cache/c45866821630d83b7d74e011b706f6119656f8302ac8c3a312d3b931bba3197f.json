@@ -1,0 +1,11 @@
+{
+  "content": "{\n    \"sla_rules\": [\n        {\n            \"rule_id\": \"RULE_001\",\n            \"metric\": \"DaysToHire\",\n            \"threshold\": 30.0,\n            \"threshold_operator\": \"<\",\n            \"penalty_amount\": 500,\n            \"penalty_type\": \"monetary\",\n            \"penalty_percentage\": 10,\n            \"description\": \"10% penalty if DaysToHire is less than TargetDaysToHire\",\n            \"applicable_period\": \"monthly\"\n        }\n    ],\n    \"violation_conditions\": [\n        {\n            \"metric\": \"DaysToHire\",\n            \"condition\": \"DaysToHire < TargetDaysToHire\",\n            \"penalty_rule\": \"10% penalty if hiring process is faster than target days\"\n        }\n    ],\n    \"sql_query\": \"SELECT IncidentID, CASE WHEN DaysToHire < TargetDaysToHire THEN 0.1 * 10000 ELSE 0 END AS Penalty FROM incidents_trainer_hiring ORDER BY IncidentID\",\n    \"data_fields_required\": [\"IncidentID\", \"DaysToHire\", \"TargetDaysToHire\"],\n    \"monthly_service_fee\": 10000,\n    \"max_monthly_penalty_percentage\": 10\n}",
+  "thinking": "",
+  "usage": {
+    "input_tokens": 1346,
+    "output_tokens": 260
+  },
+  "model": "openai/gpt-4-turbo",
+  "cached": false,
+  "timestamp": "2026-08-21T10:16:33.181616"
+}

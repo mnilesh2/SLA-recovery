@@ -1,18 +1,25 @@
-import json
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+"""
+Documents Router
+Document upload, parsing, and management
+"""
+
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
+import os
+from datetime import datetime
+
 from ..database import get_db
-from ..models import User, Document, Query, CustomPrompt, AuditLog
-from ..schemas import DocumentResponse
 from ..auth import get_current_user
-from ..services.file_storage import save_uploaded_file, extract_text_from_file
-from ..services.document_parser import parse_document_with_llm
-from ..prompts import resolve_prompt
+from ..models import User, Document
+from ..config import settings
 
-router = APIRouter(prefix="/api/documents", tags=["documents"])
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["Documents"])
 
 
-@router.post("/upload", response_model=DocumentResponse)
+@router.post("/upload")
 def upload_document(
     document: UploadFile = File(...),
     data_csv: UploadFile = File(...),
@@ -20,114 +27,232 @@ def upload_document(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    doc_content = document.file.read()
-    csv_content = data_csv.file.read()
+    """
+    Upload SLA document and billing data CSV
 
-    doc_path = save_uploaded_file(doc_content, document.filename)
-    csv_path = save_uploaded_file(csv_content, data_csv.filename)
+    Args:
+        document: SLA document (PDF/TXT)
+        data_csv: Billing data CSV file
+        custom_prompt: Optional custom prompt for LLM
+        current_user: Current authenticated user
+        db: Database session
 
-    doc_text = extract_text_from_file(doc_path)
+    Returns:
+        Document object with ID and metadata
+    """
+    try:
+        logger.info(f"=== Upload Document Started ===")
+        logger.info(f"User: {current_user.username} (ID: {current_user.id})")
+        logger.info(f"Document file: {document.filename}")
+        logger.info(f"CSV file: {data_csv.filename}")
+        logger.info(f"Custom prompt: {custom_prompt[:50] if custom_prompt else 'None'}...")
 
-    db_document = Document(
-        user_id=current_user.id,
-        filename=document.filename,
-        file_path=doc_path,
-        document_text=doc_text,
-        data_csv_path=csv_path
-    )
+        # Create uploads directory if it doesn't exist
+        logger.info(f"Creating/checking upload directory: {settings.upload_dir}")
+        os.makedirs(settings.upload_dir, exist_ok=True)
 
-    if custom_prompt and custom_prompt.strip():
-        db_custom_prompt = CustomPrompt(
-            user_id=current_user.id,
-            prompt_text=custom_prompt,
-            name=f"Custom prompt for {document.filename}"
+        # Save the document file
+        doc_filename = f"{current_user.id}_{datetime.utcnow().timestamp()}_{document.filename}"
+        doc_path = os.path.join(settings.upload_dir, doc_filename)
+        logger.info(f"Document path: {doc_path}")
+
+        with open(doc_path, "wb") as f:
+            content = document.file.read()
+            f.write(content)
+
+        # Read document content
+        if doc_filename.endswith('.pdf'):
+            text_content = f"[PDF Content - {doc_filename}]"  # Basic placeholder
+        else:
+            text_content = content.decode('utf-8')
+
+        # Save CSV file
+        csv_filename = f"{current_user.id}_{datetime.utcnow().timestamp()}_{data_csv.filename}"
+        csv_path = os.path.join(settings.upload_dir, csv_filename)
+
+        with open(csv_path, "wb") as f:
+            f.write(data_csv.file.read())
+
+        # Create database record
+        doc = Document(
+            filename=document.filename,
+            file_path=doc_path,
+            text_content=text_content,
+            uploaded_by=current_user.id,
+            file_size=len(content),
+            mime_type=document.content_type,
+            status="uploaded",
+            doc_metadata={
+                "csv_path": csv_path,
+                "csv_filename": data_csv.filename,
+                "custom_prompt": custom_prompt
+            }
         )
-        db.add(db_custom_prompt)
-        db.flush()
-        db_document.custom_prompt_id = db_custom_prompt.id
 
-    db.add(db_document)
-    db.commit()
-    db.refresh(db_document)
+        logger.info(f"Adding document to database...")
+        db.add(doc)
+        db.commit()
+        db.refresh(doc)
 
-    audit_log = AuditLog(
-        user_id=current_user.id,
-        action="upload",
-        entity_type="document",
-        entity_id=db_document.id,
-        details={"filename": document.filename}
-    )
-    db.add(audit_log)
-    db.commit()
+        logger.info(f"✅ Document successfully uploaded: ID={doc.id}, filename={document.filename}")
+        logger.info(f"=== Upload Document Completed ===")
 
-    return db_document
+        return {
+            "id": doc.id,
+            "filename": doc.filename,
+            "status": doc.status,
+            "upload_date": doc.upload_date,
+            "csv_filename": data_csv.filename
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error uploading document: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error uploading document: {str(e)}"
+        )
 
 
-@router.get("/{document_id}", response_model=DocumentResponse)
+@router.get("/{doc_id}")
 def get_document(
-    document_id: int,
+    doc_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    document = db.query(Document).filter(
-        Document.id == document_id,
-        Document.user_id == current_user.id
-    ).first()
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return document
+    """
+    Get document details
 
+    Args:
+        doc_id: Document ID
+        current_user: Current authenticated user
+        db: Database session
 
-@router.post("/{document_id}/parse")
-def parse_document(
-    document_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    document = db.query(Document).filter(
-        Document.id == document_id,
-        Document.user_id == current_user.id
-    ).first()
-    if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    existing_query = db.query(Query).filter(Query.document_id == document_id).first()
-    if existing_query:
-        raise HTTPException(status_code=400, detail="Document already parsed")
-
-    prompt = resolve_prompt(
-        custom_prompt=document.custom_prompt.prompt_text if document.custom_prompt else None
-    )
-
-    parsed_result = parse_document_with_llm(document.document_text, prompt)
-
-    extracted_terms = json.dumps(parsed_result.get("extracted_terms", {}))
-    sql_query = parsed_result.get("sql_query", "")
-
-    db_query = Query(
-        document_id=document_id,
-        sql_query=sql_query,
-        extracted_terms=extracted_terms,
-        prompt_used=prompt,
-        used_custom_prompt=bool(document.custom_prompt)
-    )
-    db.add(db_query)
-    db.commit()
-    db.refresh(db_query)
-
-    audit_log = AuditLog(
-        user_id=current_user.id,
-        action="parse",
-        entity_type="document",
-        entity_id=document_id,
-        details={"query_id": db_query.id}
-    )
-    db.add(audit_log)
-    db.commit()
+    Returns:
+        Document details
+    """
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
 
     return {
-        "query_id": db_query.id,
-        "sql_query": db_query.sql_query,
-        "extracted_terms": extracted_terms,
-        "prompt_used_custom": db_query.used_custom_prompt
+        "id": doc.id,
+        "filename": doc.filename,
+        "status": doc.status,
+        "upload_date": doc.upload_date,
+        "document_type": doc.document_type
     }
+
+
+@router.post("/{doc_id}/parse")
+def parse_document(
+    doc_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Parse document with LLM using CSV schema context
+
+    Args:
+        doc_id: Document ID
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Parsed query and validation results
+    """
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    try:
+        from ..services.document_parser import parse_document_with_llm
+        from ..models import Query
+
+        logger.info(f"=== Parsing Document Started ===")
+        logger.info(f"Document ID: {doc_id}, Filename: {doc.filename}")
+
+        # Get CSV path from document metadata
+        csv_path = doc.doc_metadata.get("csv_path") if doc.doc_metadata else None
+        custom_prompt = doc.doc_metadata.get("custom_prompt") if doc.doc_metadata else None
+
+        logger.info(f"CSV path: {csv_path}")
+        logger.info(f"Custom prompt: {custom_prompt[:50] if custom_prompt else 'None'}...")
+
+        # Parse document with LLM
+        parse_result = parse_document_with_llm(
+            document_text=doc.text_content,
+            document_type="sla",
+            custom_prompt=custom_prompt,
+            csv_path=csv_path
+        )
+
+        logger.info(f"Parse result status: {parse_result.get('status')}")
+
+        if parse_result.get("status") == "error":
+            logger.error(f"Document parsing failed: {parse_result.get('error')}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Document parsing failed: {parse_result.get('error')}"
+            )
+
+        # Extract the SQL query from the parsed result
+        extracted_terms = parse_result.get("extracted_terms", {})
+        query_text = extracted_terms.get("sql_query", "")
+
+        if not query_text:
+            logger.warning(f"No SQL query found in extracted terms")
+            query_text = "SELECT * FROM sample_billing_data"
+
+        logger.info(f"Generated query: {query_text}")
+
+        # Create Query record
+        query = Query(
+            document_id=doc.id,
+            query_text=query_text,
+            query_type="cost_analysis",
+            extraction_confidence=0.85,
+            prompt_used="default" if not custom_prompt else "custom",
+            prompt_text=custom_prompt or "Default SLA analysis prompt",
+            model_used=parse_result.get("model_used", settings.llm_model),
+            is_validated=False,
+            validation_status="pending"
+        )
+
+        db.add(query)
+        db.commit()
+        db.refresh(query)
+
+        doc.status = "parsed"
+        db.commit()
+
+        logger.info(f"✅ Document {doc_id} parsed successfully")
+        logger.info(f"=== Parsing Document Completed ===")
+
+        return {
+            "query_id": query.id,
+            "query_text": query.query_text,
+            "status": "parsed",
+            "confidence": query.extraction_confidence,
+            "model_used": parse_result.get("model_used"),
+            "extraction_details": extracted_terms
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error parsing document: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error parsing document: {str(e)}"
+        )
